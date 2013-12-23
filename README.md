@@ -364,42 +364,62 @@ The end of the abortable preclean phase which took `0` seconds elapsed/wall time
  [scrub string table, 0.0000200 secs] [1 CMS-remark: 230149K(234076K)] 245017K(310748K),
  0.0020560 secs] [Times: user=0.00 sys=0.00, real=0.01 secs]
 ```
-The young generation occupancy stats after the abortable preclean phase finished. The young generation occupancy
-is `14868K` out of `76672K` max. The rescans took `0.0004070` seconds for GC roots and `0.0015300` seconds for grey
-objects
+Remark phase. This is a stop-the-world phase that rescans the old generation for any updated objects (`0.0015300`
+seconds) and retrace them from GC roots (`0.0004070` seconds), as well as process weak reference objects
+(`0.0000060` seconds) and possibly other things (e.g. 'scrub string table' for `0.0000200` seconds).
+After the remark phase which took `0.0020560` seconds total, the young generation occupancy is `14868K` out of
+`76672K` max, and the old generation occupancy is `230149K` out of `234076K` max, for a total young and old
+generation occupancy of `245017K` out of `310748K`.
 
 ```
 0.573: [CMS-concurrent-sweep-start]
 ```
+Start of the concurrent sweep phase (non-stop-the-world) which clears all not-marked objects from the heap.
+
 ```
 0.573: [CMS-concurrent-sweep: 0.000/0.000 secs] [Times: user=0.00 sys=0.00, real=0.00 secs]
 ```
+Concurrent sweep phase has finished after `0.000` seconds.
+
 ```
 0.575: [CMS-concurrent-reset-start]
 ```
+Marks the start of the concurrent reset phase which is used to reset CMS data structures for the next CMS
+cycle.
+
 ```
 0.579: [CMS-concurrent-reset: 0.005/0.005 secs] [Times: user=0.02 sys=0.00, real=0.01 secs]
 ```
+Marks the end of the concurrent reset phase after `0.005` seconds elasped and wall-clock time.
+
 ```
-1.243: [Full GC 1.243: [CMS: 435864K->435864K(439104K), 0.0253840 secs] 491611K->491611K(515776K),
- [CMS Perm : 2871K->2871K(21248K)], 0.0254530 secs] [Times: user=0.03 sys=0.00, real=0.02 secs]
+1.401: [Full GC 1.401: [CMS: 435854K->420323K(439104K), 0.1724540 secs] 491601K->441614K(515776K),
+ [CMS Perm : 2871K->2871K(21248K)], 0.1725150 secs] [Times: user=0.17 sys=0.00, real=0.17 secs]
 ```
+This shows a full serial mark and sweep collection (not CMS) which dropped old generation occupancy
+from `435854K` (out of `439104K` max) to `420323K` in `0.1724540` seconds and consequently young and
+old generation occupancy from `491601K` (out of `515776K` max) to `441614K`. It also attempted a
+collection in the permanent generation but without success (stayed at `2871K` out of `21248K` max)
+which took `0.1725150` seconds.
+
 ```
 4.019: [Full GC 4.019: [CMS4.024: [CMS-concurrent-mark: 0.005/0.005 secs]
  [Times: user=0.00 sys=0.00, real=0.00 secs]
+ (concurrent mode failure): 433603K->433603K(439104K), 0.1609100 secs] 501763K->501573K(515776K),
+ [CMS Perm : 2871K->2871K(21248K)], 0.1609830 secs] [Times: user=0.16 sys=0.00, real=0.16 secs]
 ```
 ```
-2.693: [Full GC 2.693: [CMS2.696: [CMS-concurrent-preclean: 0.006/0.017 secs]
- [Times: user=0.02 sys=0.00, real=0.01 secs]
- (concurrent mode failure): 341764K->340122K(353920K), 0.1865130 secs] 482143K->432207K(507264K),
- [CMS Perm : 2871K->2871K(21248K)], 0.1865850 secs] [Times: user=0.19 sys=0.00, real=0.19 secs]
+6.480: [Full GC 6.480: [CMS6.480: [CMS-concurrent-abortable-preclean: 0.003/0.171 secs]
+ [Times: user=0.19 sys=0.00, real=0.17 secs]
+ (concurrent mode failure): 390440K->120556K(439104K), 0.0542700 secs] 440571K->120556K(515776K),
+ [CMS Perm : 2871K->2871K(21248K)], 0.0543300 secs] [Times: user=0.06 sys=0.01, real=0.05 secs]
 ```
-```
-2.102: [Full GC 2.102: [CMS2.107: [CMS-concurrent-mark: 0.005/0.005 secs]
- [Times: user=0.01 sys=0.00, real=0.01 secs]
- (concurrent mode failure): 344865K->227202K(353920K), 0.1025120 secs] 492038K->227202K(507264K),
- [CMS Perm : 2871K->2871K(21248K)], 0.1025750 secs] [Times: user=0.11 sys=0.00, real=0.10 secs]
-```
+A full serial mark and sweep collection (not CMS) was triggered by a `concurrent mode failure` which
+indicates that CMS can't keep up. The first of these examples showed an unsuccessful full GC (no
+change in old generation occupancy which stayed at `501763K`). The second example shows a successful
+full GC (old generation occupancy `440571K` down to `120556K`).
+This can happen in various CMS phases (`CMS-concurrent-mark`, `CMS-concurrent-preclean`,
+`CMS-concurrent-abortable-preclean`, `CMS-concurrent-sweep`, etc.).
 
 ### Concurrent mark & sweep with parallel copying collector (`UseConcMarkSweepGC` + `UseParNew`)
 
@@ -679,3 +699,6 @@ No shared spaces configured.
 * http://blog.griddynamics.com/2011/06/understanding-gc-pauses-in-jvm-hotspots.html
 * http://techblog.netflix.com/2013/05/garbage-collection-visualization.html
 * http://redstack.wordpress.com/2011/01/06/visualising-garbage-collection-in-the-jvm/
+* http://www.cubrid.org/blog/textyle/428187
+* https://blogs.oracle.com/jonthecollector/entry/our_collectors#!
+* http://portal.acm.org/citation.cfm?id=1029879
